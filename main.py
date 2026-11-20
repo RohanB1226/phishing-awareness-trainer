@@ -445,6 +445,19 @@ def list_interactions(db: Session = Depends(get_db)):
         })
     return result
 
+@app.post("/api/admin/reset")
+def reset_all_data(db: Session = Depends(get_db)):
+    db.query(Interaction).delete()
+    db.query(QuizSubmission).delete()
+    db.query(Simulation).delete()
+    db.query(Employee).delete()
+    db.commit()
+    seed_database()
+    return {
+        "status": "success",
+        "message": "All employee scores, interaction logs, quiz records, and simulation templates have been reset to factory defaults!"
+    }
+
 @app.post("/api/employee/interact")
 def record_interaction(interaction_in: InteractionCreate, db: Session = Depends(get_db)):
     emp = db.query(Employee).filter(Employee.id == interaction_in.employee_id).first()

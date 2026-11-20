@@ -123,6 +123,30 @@ function App() {
     }
   };
 
+  const handleResetEnvironment = async () => {
+    if (!window.confirm("⚠️ Are you sure you want to reset everything? This will clear all recorded clicks, reported emails, quiz scores, and restore default templates.")) {
+      return;
+    }
+    try {
+      const res = await fetch("/api/admin/reset", { method: "POST" });
+      if (res.ok) {
+        const data = await res.json();
+        setFeedbackAlert({
+          type: "info",
+          title: "System Reset Successful",
+          message: data.message
+        });
+        loadStats();
+        loadEmployees();
+        loadSimulations();
+        loadInteractions();
+        loadNewQuizQuestions();
+      }
+    } catch (err) {
+      console.error("Failed to reset system", err);
+    }
+  };
+
   useEffect(() => {
     loadStats();
     loadEmployees();
@@ -368,6 +392,23 @@ function App() {
         {/* VIEW 2: ADMIN PAGE */}
         {currentView === "admin" && (
           <div>
+            {/* Admin Header with Reset Action */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.25rem" }}>
+              <div>
+                <h2 style={{ fontSize: "1.4rem", fontWeight: "700" }}>Security Administration Dashboard</h2>
+                <p style={{ fontSize: "0.85rem", color: "#64748b" }}>
+                  Monitor phishing simulation campaign metrics, manage employee vigilance scores, and deploy tests.
+                </p>
+              </div>
+              <button 
+                className="btn btn-danger" 
+                onClick={handleResetEnvironment}
+                style={{ fontSize: "0.82rem" }}
+              >
+                🔄 Reset Everything to Factory Defaults
+              </button>
+            </div>
+
             {/* KPI Cards */}
             <div className="stats-grid">
               <div className="stat-card">
