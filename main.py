@@ -1,6 +1,7 @@
 import os
+import random
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Optional, Dict
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -65,6 +66,130 @@ class QuizSubmission(Base):
 
 Base.metadata.create_all(bind=engine)
 
+# --- Dynamic Cybersecurity Question Bank ---
+QUESTION_BANK = [
+    {
+        "id": 1,
+        "question": "You receive an urgent email from 'HR Payroll' asking you to immediately verify your direct deposit password on an external website. What is the safest response?",
+        "options": [
+            "Quickly enter your credentials before the payroll cycle closes.",
+            "Report the email through official security channels and contact HR via a known internal number.",
+            "Reply to the email asking the sender to confirm their identity.",
+            "Forward the link to your team members to check if they received it."
+        ],
+        "correct": 1,
+        "explanation": "Attackers exploit urgency to bypass critical thinking. Always report suspicious messages and verify with HR out-of-band."
+    },
+    {
+        "id": 2,
+        "question": "When inspecting an email hyperlink, which technique reveals its authentic destination without putting your machine at risk?",
+        "options": [
+            "Click the link inside an incognito or private browsing window.",
+            "Copy and paste the URL into a web search engine.",
+            "Hover your mouse cursor over the link to preview the target address in your browser/email footer.",
+            "Trust the hyperlink if the anchor text reads 'https://secure-login.com'."
+        ],
+        "correct": 2,
+        "explanation": "Hovering previews the underlying destination URL. Displayed link text can easily be spoofed to look legitimate."
+    },
+    {
+        "id": 3,
+        "question": "Which of the following sender email domains is an example of 'typosquatting' designed to impersonate Microsoft?",
+        "options": [
+            "support@micros0ft-support.com",
+            "notifications@microsoft.com",
+            "security@azure.microsoft.com",
+            "account-update@office.com"
+        ],
+        "correct": 0,
+        "explanation": "'micros0ft-support.com' uses the number '0' instead of the letter 'o' and an unauthorized domain to deceive recipients."
+    },
+    {
+        "id": 4,
+        "question": "You receive repeated Multi-Factor Authentication (MFA) push notifications on your phone that you did not initiate, followed by a message claiming to be IT asking you to 'Accept once to stop the alerts'. What is happening?",
+        "options": [
+            "Routine server synchronization that is safe to approve.",
+            "An MFA Fatigue (Push Bombing) attack attempting to trick you into authorizing an attacker's login.",
+            "A hardware glitch on your mobile device.",
+            "An automatic password reset scheduled by your domain controller."
+        ],
+        "correct": 1,
+        "explanation": "MFA fatigue attacks spam push requests hoping the victim approves out of frustration. Always deny unexpected prompts and alert Security."
+    },
+    {
+        "id": 5,
+        "question": "An email arrives from your company CEO with the subject 'Confidential: Need urgent favor', asking you to purchase electronic gift cards for a client presentation. How should you proceed?",
+        "options": [
+            "Purchase the gift cards immediately because the CEO holds organizational authority.",
+            "Call or message the executive through an approved internal directory channel before taking any action.",
+            "Reply with your personal credit card receipt asking for reimbursement.",
+            "Forward the email to the accounting department for immediate wire processing."
+        ],
+        "correct": 1,
+        "explanation": "Business Email Compromise (BEC) and executive impersonation commonly request gift cards or urgent transfers that cannot be reversed."
+    },
+    {
+        "id": 6,
+        "question": "An unexpected email arrives containing an attachment named 'Q4_Client_Bonus_Report.pdf.exe'. What does this double extension indicate?",
+        "options": [
+            "It is a high-resolution PDF document formatted for Windows workstations.",
+            "It is an executable binary masquerading as a harmless PDF document to conceal malware.",
+            "It is an encrypted archive that requires double-clicking to decrypt.",
+            "It is an Adobe Acrobat plugin update."
+        ],
+        "correct": 1,
+        "explanation": "Attackers hide executable extensions (.exe, .scr, .vbs) behind document names (.pdf.exe) hoping victims assume it is a regular document."
+    },
+    {
+        "id": 7,
+        "question": "You find a flyer in the breakroom with a QR code labeled 'Scan to join the employee wellness raffle'. What threat does this potentially pose?",
+        "options": [
+            "QR Phishing (Quishing), which can redirect mobile devices to malicious credential-harvesting websites.",
+            "No risk, as QR codes can only open safe text files.",
+            "A firewall configuration warning.",
+            "An encrypted digital signature check."
+        ],
+        "correct": 0,
+        "explanation": "QR codes obscure target URLs from human inspection, making Quishing a growing vector for credential theft on mobile devices."
+    },
+    {
+        "id": 8,
+        "question": "An email from 'internal-comms@cybershield.corp' announces the upcoming company picnic, lists the park address, and contains no links or attachments. What type of communication is this?",
+        "options": [
+            "A high-threat phishing lure requiring immediate quarantine.",
+            "A legitimate routine internal email that does not require reporting as malicious.",
+            "A distributed denial of service beacon.",
+            "A credential harvesting simulation."
+        ],
+        "correct": 1,
+        "explanation": "Reporting harmless internal messages as phishing creates false alarms. Distinguishing safe business emails from threats is essential."
+    },
+    {
+        "id": 9,
+        "question": "You receive a browser popup or email asserting: 'Your computer has 7 viruses! Call 1-800-MICROSOFT immediately to clean your hard drive.' What is this tactic known as?",
+        "options": [
+            "Authorized remote telemetry.",
+            "Tech support scareware designed to trick victims into granting remote access to their systems.",
+            "An authentic Windows Defender operational notice.",
+            "A corporate patch management notification."
+        ],
+        "correct": 1,
+        "explanation": "Scareware fabricates dramatic system warnings to panic users into calling fraudulent help desks or installing remote control tools."
+    },
+    {
+        "id": 10,
+        "question": "If you inadvertently click a simulated phishing link in an internal training drill, what is the best constructive next step?",
+        "options": [
+            "Delete your email profile to avoid detection.",
+            "Carefully review the training feedback, note the red flags present, and complete the refresher module.",
+            "Ignore all future emails from the IT department.",
+            "Share your password with coworkers to verify if their accounts work."
+        ],
+        "correct": 1,
+        "explanation": "Simulations are safe learning opportunities. Understanding the indicators prepares employees to spot real attacks in the wild."
+    }
+]
+
 # --- Minimal Scikit-Learn Classifier ---
 def init_ml_pipeline():
     sample_texts = [
@@ -90,7 +215,7 @@ def init_ml_pipeline():
 
 ml_classifier = init_ml_pipeline()
 
-# --- Seed Initial Safe Simulation Data (Mix of Phishing & Legitimate) ---
+# --- Seed Initial Safe Simulation Data ---
 def seed_database():
     db = SessionLocal()
     try:
@@ -104,56 +229,53 @@ def seed_database():
             db.add_all(demo_employees)
             db.commit()
 
-        if db.query(Simulation).count() < 4:
-            # Check existing IDs to avoid duplicates
-            existing_subjects = [s.subject for s in db.query(Simulation).all()]
-            
-            samples = [
-                Simulation(
-                    title="Simulated Urgent Account Verification",
-                    sender="security-notify@corporate-alert-services.biz",
-                    subject="[SIMULATION] Urgent: Action required on your corporate profile",
-                    body_text="Hello, we noticed abnormal activity on your workstation profile. Please verify your login session immediately by clicking the link below to avoid service interruption.\n\nSimulated Training URL: https://safe-training-domain.local/profile-check",
-                    simulated_url="https://safe-training-domain.local/profile-check",
-                    difficulty="Medium",
-                    is_suspicious=True,
-                    red_flags="Artificial Urgency, Lookalike Sender Domain, Ambiguous Call to Action"
-                ),
-                Simulation(
-                    title="Simulated Routine All-Hands Meeting Invitation",
-                    sender="internal-comms@cybershield.corp",
-                    subject="Quarterly All-Hands Meeting - Next Thursday 2:00 PM",
-                    body_text="Hi Team,\n\nPlease find the invitation for our upcoming Quarterly All-Hands briefing. We will review our departmental milestones and celebrate key wins. No external action or credentials needed.",
-                    simulated_url="",
-                    difficulty="Easy",
-                    is_suspicious=False,
-                    red_flags="None (Legitimate internal announcement)"
-                ),
-                Simulation(
-                    title="Simulated Unexpected Delivery Notice",
-                    sender="tracking@express-parcels-center.com",
-                    subject="[SIMULATION] Delivery exception: Confirm destination address",
-                    body_text="Your package shipment could not be delivered to the reception desk. Check your delivery status and reconfirm address details at our portal.\n\nSimulated Training URL: https://safe-training-domain.local/delivery-update",
-                    simulated_url="https://safe-training-domain.local/delivery-update",
-                    difficulty="Easy",
-                    is_suspicious=True,
-                    red_flags="Unexpected Logistics Notification, External Link, Generic Salutation"
-                ),
-                Simulation(
-                    title="Simulated Routine IT Maintenance Notice",
-                    sender="it-support@cybershield.corp",
-                    subject="Scheduled Network Infrastructure Maintenance - Saturday 11:00 PM",
-                    body_text="Dear Employees,\n\nPlease be advised that our internal network switches will undergo routine maintenance this Saturday between 11:00 PM and 1:00 AM. No action is required on your part. Systems will resume normal operations on Sunday morning.",
-                    simulated_url="",
-                    difficulty="Easy",
-                    is_suspicious=False,
-                    red_flags="None (Legitimate internal IT maintenance notice)"
-                )
-            ]
-            for item in samples:
-                if item.subject not in existing_subjects:
-                    db.add(item)
-            db.commit()
+        existing_subjects = [s.subject for s in db.query(Simulation).all()]
+        samples = [
+            Simulation(
+                title="Simulated Urgent Account Verification",
+                sender="security-notify@corporate-alert-services.biz",
+                subject="[SIMULATION] Urgent: Action required on your corporate profile",
+                body_text="Hello, we noticed abnormal activity on your workstation profile. Please verify your login session immediately by clicking the link below to avoid service interruption.\n\nSimulated Training URL: https://safe-training-domain.local/profile-check",
+                simulated_url="https://safe-training-domain.local/profile-check",
+                difficulty="Medium",
+                is_suspicious=True,
+                red_flags="Artificial Urgency, Lookalike Sender Domain, Ambiguous Call to Action"
+            ),
+            Simulation(
+                title="Simulated Routine All-Hands Meeting Invitation",
+                sender="internal-comms@cybershield.corp",
+                subject="Quarterly All-Hands Meeting - Next Thursday 2:00 PM",
+                body_text="Hi Team,\n\nPlease find the invitation for our upcoming Quarterly All-Hands briefing. We will review our departmental milestones and celebrate key wins. No external action or credentials needed.",
+                simulated_url="",
+                difficulty="Easy",
+                is_suspicious=False,
+                red_flags="None (Legitimate internal announcement)"
+            ),
+            Simulation(
+                title="Simulated Unexpected Delivery Notice",
+                sender="tracking@express-parcels-center.com",
+                subject="[SIMULATION] Delivery exception: Confirm destination address",
+                body_text="Your package shipment could not be delivered to the reception desk. Check your delivery status and reconfirm address details at our portal.\n\nSimulated Training URL: https://safe-training-domain.local/delivery-update",
+                simulated_url="https://safe-training-domain.local/delivery-update",
+                difficulty="Easy",
+                is_suspicious=True,
+                red_flags="Unexpected Logistics Notification, External Link, Generic Salutation"
+            ),
+            Simulation(
+                title="Simulated Routine IT Maintenance Notice",
+                sender="it-support@cybershield.corp",
+                subject="Scheduled Network Infrastructure Maintenance - Saturday 11:00 PM",
+                body_text="Dear Employees,\n\nPlease be advised that our internal network switches will undergo routine maintenance this Saturday between 11:00 PM and 1:00 AM. No action is required on your part. Systems will resume normal operations on Sunday morning.",
+                simulated_url="",
+                difficulty="Easy",
+                is_suspicious=False,
+                red_flags="None (Legitimate internal IT maintenance notice)"
+            )
+        ]
+        for item in samples:
+            if item.subject not in existing_subjects:
+                db.add(item)
+        db.commit()
     finally:
         db.close()
 
@@ -197,11 +319,11 @@ class SimulationCreate(BaseModel):
 class InteractionCreate(BaseModel):
     employee_id: int
     simulation_id: int
-    action: str  # "opened", "clicked_link", "reported", "marked_safe"
+    action: str
 
 class QuizSubmit(BaseModel):
     employee_id: int
-    answers: List[int]
+    answers: Dict[int, int]  # { question_id: selected_option_index }
 
 class MLPredictRequest(BaseModel):
     text: str
@@ -216,7 +338,6 @@ def serve_index():
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CYBER SHIELD - Phishing Simulation & Awareness Trainer</title>
     <link rel="stylesheet" href="/style.css">
-    <!-- React & Babel via CDN -->
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -356,7 +477,6 @@ def record_interaction(interaction_in: InteractionCreate, db: Session = Depends(
                 "message": "Reporting suspicious emails protects the entire company. Indicators spotted: " + sim.red_flags
             }
         else:
-            # False positive
             emp.awareness_score = max(10.0, round(emp.awareness_score - 5.0, 1))
             feedback = {
                 "type": "info",
@@ -393,6 +513,21 @@ def record_interaction(interaction_in: InteractionCreate, db: Session = Depends(
         "employee_score": emp.awareness_score,
         "feedback": feedback
     }
+
+# --- Dynamic & Randomized Quiz Endpoints ---
+@app.get("/api/training/quiz-questions")
+def get_random_quiz_questions(count: int = 4):
+    sample_size = min(count, len(QUESTION_BANK))
+    selected = random.sample(QUESTION_BANK, sample_size)
+    # Return questions without the correct index to avoid client inspection
+    public_questions = []
+    for q in selected:
+        public_questions.append({
+            "id": q["id"],
+            "question": q["question"],
+            "options": q["options"]
+        })
+    return public_questions
 
 @app.get("/api/training/{employee_id}")
 def get_employee_training(employee_id: int, db: Session = Depends(get_db)):
@@ -452,17 +587,33 @@ def submit_quiz(submission: QuizSubmit, db: Session = Depends(get_db)):
     if not emp:
         raise HTTPException(status_code=404, detail="Employee not found")
 
-    correct_answers = [1, 2, 0, 1]
     score = 0
-    total = len(correct_answers)
+    total = len(submission.answers)
+    if total == 0:
+        raise HTTPException(status_code=400, detail="No answers submitted")
 
-    for i, ans in enumerate(submission.answers):
-        if i < total and ans == correct_answers[i]:
-            score += 1
+    bank_map = {q["id"]: q for q in QUESTION_BANK}
+    review_details = []
+
+    for qid, user_ans in submission.answers.items():
+        q_item = bank_map.get(int(qid))
+        if q_item:
+            is_correct = (user_ans == q_item["correct"])
+            if is_correct:
+                score += 1
+            review_details.append({
+                "id": q_item["id"],
+                "question": q_item["question"],
+                "user_answer": q_item["options"][user_ans] if 0 <= user_ans < len(q_item["options"]) else "None",
+                "correct_answer": q_item["options"][q_item["correct"]],
+                "is_correct": is_correct,
+                "explanation": q_item["explanation"]
+            })
 
     quiz_rec = QuizSubmission(employee_id=emp.id, score=score, total=total)
     db.add(quiz_rec)
 
+    # Calculate bonus proportionally
     bonus = round((score / total) * 15.0, 1)
     emp.awareness_score = min(100.0, round(emp.awareness_score + bonus, 1))
     db.commit()
@@ -471,7 +622,8 @@ def submit_quiz(submission: QuizSubmit, db: Session = Depends(get_db)):
         "score": score,
         "total": total,
         "updated_awareness_score": emp.awareness_score,
-        "message": f"Quiz submitted! You got {score} out of {total} correct."
+        "message": f"Quiz Completed! You scored {score} out of {total}.",
+        "reviews": review_details
     }
 
 @app.post("/api/ml/predict-email")

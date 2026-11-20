@@ -32,9 +32,11 @@ function App() {
   const [mlResult, setMlResult] = useState(null);
   const [isAnalyzingML, setIsAnalyzingML] = useState(false);
 
-  // Quiz State
+  // Dynamic Quiz State
+  const [quizQuestions, setQuizQuestions] = useState([]);
   const [quizAnswers, setQuizAnswers] = useState({});
   const [quizFeedback, setQuizFeedback] = useState(null);
+  const [isLoadingQuiz, setIsLoadingQuiz] = useState(false);
 
   // Fetch Core Data
   const loadStats = async () => {
@@ -104,11 +106,29 @@ function App() {
     }
   };
 
+  const loadNewQuizQuestions = async () => {
+    setIsLoadingQuiz(true);
+    try {
+      const res = await fetch("/api/training/quiz-questions?count=4");
+      if (res.ok) {
+        const data = await res.json();
+        setQuizQuestions(data);
+        setQuizAnswers({});
+        setQuizFeedback(null);
+      }
+    } catch (err) {
+      console.error("Failed to fetch quiz questions", err);
+    } finally {
+      setIsLoadingQuiz(false);
+    }
+  };
+
   useEffect(() => {
     loadStats();
     loadEmployees();
     loadSimulations();
     loadInteractions();
+    loadNewQuizQuestions();
   }, []);
 
   useEffect(() => {
@@ -198,15 +218,13 @@ function App() {
     }
   };
 
-  // Submit Training Quiz
+  // Submit Dynamic Training Quiz
   const handleQuizSubmit = async (e) => {
     e.preventDefault();
-    const answersArray = [
-      quizAnswers[0] !== undefined ? quizAnswers[0] : -1,
-      quizAnswers[1] !== undefined ? quizAnswers[1] : -1,
-      quizAnswers[2] !== undefined ? quizAnswers[2] : -1,
-      quizAnswers[3] !== undefined ? quizAnswers[3] : -1,
-    ];
+    if (Object.keys(quizAnswers).length === 0) {
+      alert("Please select answers before submitting the quiz.");
+      return;
+    }
 
     try {
       const res = await fetch("/api/training/quiz", {
@@ -214,7 +232,7 @@ function App() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           employee_id: currentEmployeeId,
-          answers: answersArray
+          answers: quizAnswers
         })
       });
       if (res.ok) {
@@ -306,7 +324,7 @@ function App() {
               <div className="hero-subtitle">Automated Phishing Simulation & Awareness Trainer</div>
               <p className="hero-description">
                 Empower your organization with safe, internal simulated phishing exercises and automated awareness training. 
-                Evaluate resilience with both authentic phishing scenarios and legitimate corporate communications.
+                Evaluate resilience with authentic phishing scenarios, legitimate corporate communications, and dynamic quizzes that change each time.
               </p>
               <div className="hero-actions">
                 <button className="btn btn-primary" onClick={() => setCurrentView("employee")}>
@@ -316,7 +334,7 @@ function App() {
                   Access Admin Dashboard 📊
                 </button>
                 <button className="btn btn-secondary" onClick={() => setCurrentView("training")}>
-                  View Awareness Training 🛡️
+                  Take Security Quiz 🛡️
                 </button>
               </div>
             </section>
@@ -330,10 +348,10 @@ function App() {
                 </p>
               </div>
               <div className="feature-card">
-                <div className="feature-icon">🧠</div>
-                <h3 className="feature-title">Python Rule-Based Learning</h3>
+                <div className="feature-icon">🎯</div>
+                <h3 className="feature-title">Dynamic Shuffled Quizzes</h3>
                 <p className="feature-text">
-                  Automatically calculate risk scores, penalize unsafe clicks, reward vigilance, and guide against false alarm reports.
+                  Features a randomized 10+ question cybersecurity bank covering QR phishing, MFA fatigue, typosquatting, and scareware. Different questions each round!
                 </p>
               </div>
               <div className="feature-card">
@@ -708,7 +726,7 @@ function App() {
           </div>
         )}
 
-        {/* VIEW 4: AWARENESS TRAINING & QUIZ */}
+        {/* VIEW 4: AWARENESS TRAINING & DYNAMIC QUIZ */}
         {currentView === "training" && (
           <div>
             <div style={{ marginBottom: "1.25rem" }}>
@@ -738,161 +756,120 @@ function App() {
               ))}
             </div>
 
-            {/* Interactive Awareness Quiz */}
+            {/* Dynamic Interactive Awareness Quiz */}
             <div className="card">
               <div className="card-header">
-                <h3 className="card-title">Phishing Awareness Quick Quiz</h3>
-                <span className="badge badge-green">Knowledge Check</span>
+                <div>
+                  <h3 className="card-title">Dynamic Cybersecurity Awareness Quiz</h3>
+                  <p style={{ fontSize: "0.82rem", color: "#64748b", marginTop: "0.2rem" }}>
+                    Questions are randomly selected from our 10+ cybersecurity scenario bank. Different each time!
+                  </p>
+                </div>
+                <button 
+                  className="btn btn-secondary" 
+                  onClick={loadNewQuizQuestions}
+                  disabled={isLoadingQuiz}
+                >
+                  {isLoadingQuiz ? "Loading..." : "🔄 Shuffle & Get New Questions"}
+                </button>
               </div>
 
-              {quizFeedback && (
-                <div className="alert-banner alert-info" style={{ marginBottom: "1.5rem" }}>
-                  <div>
-                    <strong>{quizFeedback.message}</strong>
-                    <p style={{ fontSize: "0.85rem", marginTop: "0.2rem" }}>
-                      Your updated awareness score is now: <strong>{quizFeedback.updated_awareness_score}%</strong>
-                    </p>
+              {quizFeedback ? (
+                <div>
+                  <div className="alert-banner alert-info" style={{ marginBottom: "1.5rem" }}>
+                    <div>
+                      <strong>{quizFeedback.message}</strong>
+                      <p style={{ fontSize: "0.88rem", marginTop: "0.25rem" }}>
+                        Your updated awareness score is now: <strong>{quizFeedback.updated_awareness_score}%</strong>
+                      </p>
+                    </div>
+                    <button 
+                      className="btn btn-primary" 
+                      onClick={loadNewQuizQuestions}
+                    >
+                      🎯 Take Another Quiz (New Questions)
+                    </button>
+                  </div>
+
+                  <h4 style={{ fontSize: "1rem", fontWeight: "600", marginBottom: "1rem" }}>
+                    Detailed Answer Review & Learning Explanations:
+                  </h4>
+
+                  {quizFeedback.reviews && quizFeedback.reviews.map((rev, idx) => (
+                    <div 
+                      key={rev.id} 
+                      className={`quiz-review-card ${rev.is_correct ? 'correct' : 'incorrect'}`}
+                    >
+                      <div className="quiz-review-question">
+                        {idx + 1}. {rev.question}
+                      </div>
+                      <div style={{ margin: "0.35rem 0" }}>
+                        <strong>Your Answer: </strong> 
+                        <span style={{ color: rev.is_correct ? '#166534' : '#991b1b' }}>
+                          {rev.user_answer} {rev.is_correct ? '✅ (Correct)' : '❌ (Incorrect)'}
+                        </span>
+                      </div>
+                      {!rev.is_correct && (
+                        <div style={{ margin: "0.35rem 0", color: "#166534" }}>
+                          <strong>Correct Answer: </strong> {rev.correct_answer}
+                        </div>
+                      )}
+                      <div className="quiz-review-explanation">
+                        💡 <strong>Cybersecurity Key Concept:</strong> {rev.explanation}
+                      </div>
+                    </div>
+                  ))}
+
+                  <div style={{ marginTop: "1.5rem", textAlign: "center" }}>
+                    <button 
+                      className="btn btn-primary" 
+                      onClick={loadNewQuizQuestions}
+                    >
+                      🔄 Start Fresh Round (Different Questions)
+                    </button>
                   </div>
                 </div>
+              ) : (
+                <form onSubmit={handleQuizSubmit}>
+                  {quizQuestions.length === 0 ? (
+                    <div style={{ padding: "2rem", textAlign: "center", color: "#64748b" }}>
+                      Loading dynamic quiz scenarios...
+                    </div>
+                  ) : (
+                    quizQuestions.map((q, idx) => (
+                      <div key={q.id} className="quiz-question-block">
+                        <div className="quiz-question-title">
+                          {idx + 1}. {q.question}
+                        </div>
+                        {q.options.map((opt, optIdx) => (
+                          <label key={optIdx} className="quiz-option">
+                            <input 
+                              type="radio" 
+                              name={`question_${q.id}`} 
+                              checked={quizAnswers[q.id] === optIdx} 
+                              onChange={() => setQuizAnswers({...quizAnswers, [q.id]: optIdx})} 
+                            />
+                            {opt}
+                          </label>
+                        ))}
+                      </div>
+                    ))
+                  )}
+
+                  <div style={{ display: "flex", gap: "1rem", marginTop: "1rem" }}>
+                    <button type="submit" className="btn btn-primary">
+                      Submit Quiz & Update Score
+                    </button>
+                    <button 
+                      type="button" 
+                      className="btn btn-secondary" 
+                      onClick={loadNewQuizQuestions}
+                    >
+                      Shuffle Questions
+                    </button>
+                  </div>
+                </form>
               )}
-
-              <form onSubmit={handleQuizSubmit}>
-                <div className="quiz-question-block">
-                  <div className="quiz-question-title">
-                    1. You receive an urgent email from "HR Benefits" asking you to immediately verify your direct deposit password on an external site. What should you do?
-                  </div>
-                  <label className="quiz-option">
-                    <input 
-                      type="radio" 
-                      name="q0" 
-                      checked={quizAnswers[0] === 0} 
-                      onChange={() => setQuizAnswers({...quizAnswers, 0: 0})} 
-                    />
-                    Immediately click the link and re-enter your password to prevent payroll delays.
-                  </label>
-                  <label className="quiz-option">
-                    <input 
-                      type="radio" 
-                      name="q0" 
-                      checked={quizAnswers[0] === 1} 
-                      onChange={() => setQuizAnswers({...quizAnswers, 0: 1})} 
-                    />
-                    Report the email as suspicious and verify directly with HR via official company channels. (Correct)
-                  </label>
-                  <label className="quiz-option">
-                    <input 
-                      type="radio" 
-                      name="q0" 
-                      checked={quizAnswers[0] === 2} 
-                      onChange={() => setQuizAnswers({...quizAnswers, 0: 2})} 
-                    />
-                    Forward the email to all colleagues in your department.
-                  </label>
-                </div>
-
-                <div className="quiz-question-block">
-                  <div className="quiz-question-title">
-                    2. When inspecting a hyperlink in an email, which technique helps reveal the true destination?
-                  </div>
-                  <label className="quiz-option">
-                    <input 
-                      type="radio" 
-                      name="q1" 
-                      checked={quizAnswers[1] === 0} 
-                      onChange={() => setQuizAnswers({...quizAnswers, 1: 0})} 
-                    />
-                    Click the link as fast as possible to see where it redirects.
-                  </label>
-                  <label className="quiz-option">
-                    <input 
-                      type="radio" 
-                      name="q1" 
-                      checked={quizAnswers[1] === 1} 
-                      onChange={() => setQuizAnswers({...quizAnswers, 1: 1})} 
-                    />
-                    Only trust the text displayed in the email body.
-                  </label>
-                  <label className="quiz-option">
-                    <input 
-                      type="radio" 
-                      name="q2" 
-                      checked={quizAnswers[1] === 2} 
-                      onChange={() => setQuizAnswers({...quizAnswers, 1: 2})} 
-                    />
-                    Hover your mouse over the link to preview the actual destination URL. (Correct)
-                  </label>
-                </div>
-
-                <div className="quiz-question-block">
-                  <div className="quiz-question-title">
-                    3. Which of the following is the most common red flag of a phishing attempt?
-                  </div>
-                  <label className="quiz-option">
-                    <input 
-                      type="radio" 
-                      name="q2" 
-                      checked={quizAnswers[2] === 0} 
-                      onChange={() => setQuizAnswers({...quizAnswers, 2: 0})} 
-                    />
-                    Extreme urgency, fear tactics, or threats of account suspension. (Correct)
-                  </label>
-                  <label className="quiz-option">
-                    <input 
-                      type="radio" 
-                      name="q2" 
-                      checked={quizAnswers[2] === 1} 
-                      onChange={() => setQuizAnswers({...quizAnswers, 2: 1})} 
-                    />
-                    An invitation to a recurring team meeting from your manager's verified address.
-                  </label>
-                  <label className="quiz-option">
-                    <input 
-                      type="radio" 
-                      name="q2" 
-                      checked={quizAnswers[2] === 2} 
-                      onChange={() => setQuizAnswers({...quizAnswers, 2: 2})} 
-                    />
-                    A weekly company newsletter sent through internal mailing lists.
-                  </label>
-                </div>
-
-                <div className="quiz-question-block">
-                  <div className="quiz-question-title">
-                    4. If you accidentally click a simulated phishing link during a training drill, what is the best immediate response?
-                  </div>
-                  <label className="quiz-option">
-                    <input 
-                      type="radio" 
-                      name="q3" 
-                      checked={quizAnswers[3] === 0} 
-                      onChange={() => setQuizAnswers({...quizAnswers, 3: 0})} 
-                    />
-                    Shut down your computer and do not tell anyone.
-                  </label>
-                  <label className="quiz-option">
-                    <input 
-                      type="radio" 
-                      name="q3" 
-                      checked={quizAnswers[3] === 1} 
-                      onChange={() => setQuizAnswers({...quizAnswers, 3: 1})} 
-                    />
-                    Review the training feedback, learn the red flags, and report suspicious messages promptly. (Correct)
-                  </label>
-                  <label className="quiz-option">
-                    <input 
-                      type="radio" 
-                      name="q3" 
-                      checked={quizAnswers[3] === 2} 
-                      onChange={() => setQuizAnswers({...quizAnswers, 3: 2})} 
-                    />
-                    Enter fictitious credentials into the website form.
-                  </label>
-                </div>
-
-                <button type="submit" className="btn btn-primary">
-                  Submit Quiz & Update Awareness Score
-                </button>
-              </form>
             </div>
           </div>
         )}

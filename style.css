@@ -664,6 +664,39 @@ textarea.form-control {
   cursor: pointer;
 }
 
+/* Detailed Quiz Review Cards */
+.quiz-review-card {
+  padding: 1.15rem;
+  border-radius: var(--radius-sm);
+  margin-bottom: 1rem;
+  border: 1px solid var(--border-color);
+  font-size: 0.88rem;
+}
+
+.quiz-review-card.correct {
+  background-color: #f0fdf4;
+  border-left: 4px solid #16a34a;
+}
+
+.quiz-review-card.incorrect {
+  background-color: #fef2f2;
+  border-left: 4px solid #ef4444;
+}
+
+.quiz-review-question {
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  color: #0f172a;
+}
+
+.quiz-review-explanation {
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px dashed rgba(0, 0, 0, 0.1);
+  font-size: 0.82rem;
+  color: #475569;
+}
+
 /* Responsive adjustments */
 @media (max-width: 840px) {
   .navbar {
