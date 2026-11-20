@@ -51,7 +51,7 @@ class Interaction(Base):
     id = Column(Integer, primary_key=True, index=True)
     employee_id = Column(Integer, ForeignKey("employees.id"))
     simulation_id = Column(Integer, ForeignKey("simulations.id"))
-    action = Column(String, nullable=False)  # opened, clicked_link, reported
+    action = Column(String, nullable=False)  # opened, clicked_link, reported, marked_safe
     timestamp = Column(DateTime, default=datetime.utcnow)
     details = Column(String, default="")
 
@@ -90,22 +90,25 @@ def init_ml_pipeline():
 
 ml_classifier = init_ml_pipeline()
 
-# --- Seed Initial Safe Simulation Data ---
+# --- Seed Initial Safe Simulation Data (Mix of Phishing & Legitimate) ---
 def seed_database():
     db = SessionLocal()
     try:
         if db.query(Employee).count() == 0:
             demo_employees = [
-                Employee(name="Alex Rivera", email="alex.rivera@cybershield.corp", department="Finance", role="Employee", awareness_score=85.0, simulations_received=3, links_clicked=1, emails_reported=2),
-                Employee(name="Samantha Chen", email="samantha.chen@cybershield.corp", department="Human Resources", role="Employee", awareness_score=95.0, simulations_received=3, links_clicked=0, emails_reported=3),
+                Employee(name="Alex Rivera", email="alex.rivera@cybershield.corp", department="Finance", role="Employee", awareness_score=85.0, simulations_received=4, links_clicked=1, emails_reported=2),
+                Employee(name="Samantha Chen", email="samantha.chen@cybershield.corp", department="Human Resources", role="Employee", awareness_score=95.0, simulations_received=4, links_clicked=0, emails_reported=3),
                 Employee(name="Marcus Taylor", email="marcus.taylor@cybershield.corp", department="IT Operations", role="Employee", awareness_score=70.0, simulations_received=4, links_clicked=2, emails_reported=1),
                 Employee(name="Elena Rostova", email="elena.rostova@cybershield.corp", department="Security Administration", role="Admin", awareness_score=100.0, simulations_received=0, links_clicked=0, emails_reported=0)
             ]
             db.add_all(demo_employees)
             db.commit()
 
-        if db.query(Simulation).count() == 0:
-            demo_simulations = [
+        if db.query(Simulation).count() < 4:
+            # Check existing IDs to avoid duplicates
+            existing_subjects = [s.subject for s in db.query(Simulation).all()]
+            
+            samples = [
                 Simulation(
                     title="Simulated Urgent Account Verification",
                     sender="security-notify@corporate-alert-services.biz",
@@ -115,6 +118,16 @@ def seed_database():
                     difficulty="Medium",
                     is_suspicious=True,
                     red_flags="Artificial Urgency, Lookalike Sender Domain, Ambiguous Call to Action"
+                ),
+                Simulation(
+                    title="Simulated Routine All-Hands Meeting Invitation",
+                    sender="internal-comms@cybershield.corp",
+                    subject="Quarterly All-Hands Meeting - Next Thursday 2:00 PM",
+                    body_text="Hi Team,\n\nPlease find the invitation for our upcoming Quarterly All-Hands briefing. We will review our departmental milestones and celebrate key wins. No external action or credentials needed.",
+                    simulated_url="",
+                    difficulty="Easy",
+                    is_suspicious=False,
+                    red_flags="None (Legitimate internal announcement)"
                 ),
                 Simulation(
                     title="Simulated Unexpected Delivery Notice",
@@ -127,17 +140,19 @@ def seed_database():
                     red_flags="Unexpected Logistics Notification, External Link, Generic Salutation"
                 ),
                 Simulation(
-                    title="Simulated Routine All-Hands Meeting Invitation",
-                    sender="internal-comms@cybershield.corp",
-                    subject="Quarterly All-Hands Meeting - Next Thursday 2:00 PM",
-                    body_text="Hi Team,\n\nPlease find the invitation for our upcoming Quarterly All-Hands briefing. We will review our departmental milestones and celebrate key wins. No external action or credentials needed.",
+                    title="Simulated Routine IT Maintenance Notice",
+                    sender="it-support@cybershield.corp",
+                    subject="Scheduled Network Infrastructure Maintenance - Saturday 11:00 PM",
+                    body_text="Dear Employees,\n\nPlease be advised that our internal network switches will undergo routine maintenance this Saturday between 11:00 PM and 1:00 AM. No action is required on your part. Systems will resume normal operations on Sunday morning.",
                     simulated_url="",
                     difficulty="Easy",
                     is_suspicious=False,
-                    red_flags="None (Legitimate internal announcement)"
+                    red_flags="None (Legitimate internal IT maintenance notice)"
                 )
             ]
-            db.add_all(demo_simulations)
+            for item in samples:
+                if item.subject not in existing_subjects:
+                    db.add(item)
             db.commit()
     finally:
         db.close()
@@ -182,7 +197,7 @@ class SimulationCreate(BaseModel):
 class InteractionCreate(BaseModel):
     employee_id: int
     simulation_id: int
-    action: str  # "opened", "clicked_link", "reported"
+    action: str  # "opened", "clicked_link", "reported", "marked_safe"
 
 class QuizSubmit(BaseModel):
     employee_id: int
@@ -276,10 +291,10 @@ def create_simulation(sim: SimulationCreate, db: Session = Depends(get_db)):
         sender=sim.sender,
         subject=sim.subject,
         body_text=sim.body_text,
-        simulated_url=sim.simulated_url,
+        simulated_url=sim.simulated_url if sim.is_suspicious else "",
         difficulty=sim.difficulty,
         is_suspicious=sim.is_suspicious,
-        red_flags=sim.red_flags
+        red_flags=sim.red_flags if sim.is_suspicious else "None (Legitimate internal communication)"
     )
     db.add(new_sim)
     
@@ -303,6 +318,7 @@ def list_interactions(db: Session = Depends(get_db)):
             "employee_name": emp.name if emp else "Unknown",
             "employee_email": emp.email if emp else "N/A",
             "simulation_subject": sim.subject if sim else "General",
+            "is_suspicious": sim.is_suspicious if sim else True,
             "action": item.action,
             "timestamp": item.timestamp.strftime("%Y-%m-%d %H:%M:%S")
         })
@@ -327,22 +343,46 @@ def record_interaction(interaction_in: InteractionCreate, db: Session = Depends(
         emp.awareness_score = max(10.0, round(emp.awareness_score - 20.0, 1))
         feedback = {
             "type": "warning",
-            "title": "Simulation Alert: You clicked a simulated training link!",
-            "message": "In a real phishing scenario, clicking this link could pose a security hazard. Notice the indicators: " + sim.red_flags
+            "title": "Simulation Alert: You clicked a simulated phishing link!",
+            "message": "In a real scenario, clicking this unverified link could compromise credentials. Red flags: " + sim.red_flags
         }
     elif interaction_in.action == "reported":
-        emp.emails_reported += 1
-        emp.awareness_score = min(100.0, round(emp.awareness_score + 10.0, 1))
-        feedback = {
-            "type": "success",
-            "title": "Excellent Job! You successfully reported this simulation.",
-            "message": "Reporting suspicious emails protects the entire organization. Great awareness!"
-        }
+        if sim.is_suspicious:
+            emp.emails_reported += 1
+            emp.awareness_score = min(100.0, round(emp.awareness_score + 10.0, 1))
+            feedback = {
+                "type": "success",
+                "title": "Excellent Vigilance! You successfully reported a phishing simulation.",
+                "message": "Reporting suspicious emails protects the entire company. Indicators spotted: " + sim.red_flags
+            }
+        else:
+            # False positive
+            emp.awareness_score = max(10.0, round(emp.awareness_score - 5.0, 1))
+            feedback = {
+                "type": "info",
+                "title": "False Alarm: This was a Legitimate Business Email",
+                "message": f"This message from '{sim.sender}' is a genuine internal communication. Inspect the sender domain and content carefully to avoid reporting safe messages."
+            }
+    elif interaction_in.action == "marked_safe":
+        if not sim.is_suspicious:
+            emp.awareness_score = min(100.0, round(emp.awareness_score + 5.0, 1))
+            feedback = {
+                "type": "success",
+                "title": "Correct Recognition! Email Verified as Safe",
+                "message": "Great job recognizing a legitimate corporate announcement. No malicious indicators found."
+            }
+        else:
+            emp.awareness_score = max(10.0, round(emp.awareness_score - 15.0, 1))
+            feedback = {
+                "type": "warning",
+                "title": "Missed Threat: This email was actually a Phishing Simulation!",
+                "message": "You classified a phishing simulation as safe. Warning signs present: " + sim.red_flags
+            }
     else:
         feedback = {
             "type": "info",
             "title": "Email Opened",
-            "message": "Always inspect the sender address and links before taking action."
+            "message": "Always inspect the sender address, tone, and links before taking action."
         }
 
     db.commit()

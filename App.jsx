@@ -306,7 +306,7 @@ function App() {
               <div className="hero-subtitle">Automated Phishing Simulation & Awareness Trainer</div>
               <p className="hero-description">
                 Empower your organization with safe, internal simulated phishing exercises and automated awareness training. 
-                Evaluate resilience, educate employees on email red flags, and measure security awareness scores in real time.
+                Evaluate resilience with both authentic phishing scenarios and legitimate corporate communications.
               </p>
               <div className="hero-actions">
                 <button className="btn btn-primary" onClick={() => setCurrentView("employee")}>
@@ -324,21 +324,21 @@ function App() {
             <div className="home-grid">
               <div className="feature-card">
                 <div className="feature-icon">📬</div>
-                <h3 className="feature-title">Controlled Safe Simulations</h3>
+                <h3 className="feature-title">Realistic Mixed Inboxes</h3>
                 <p className="feature-text">
-                  Deliver safe educational simulations directly into employee mock inboxes. Zero external leaks and zero credential harvesting.
+                  Presents both genuine company announcements and simulated phishing threats so employees learn to discern legitimate messages from malicious attacks.
                 </p>
               </div>
               <div className="feature-card">
                 <div className="feature-icon">🧠</div>
                 <h3 className="feature-title">Python Rule-Based Learning</h3>
                 <p className="feature-text">
-                  Automatically calculate risk scores and tailor educational modules based on specific mistakes such as clicking unverified links.
+                  Automatically calculate risk scores, penalize unsafe clicks, reward vigilance, and guide against false alarm reports.
                 </p>
               </div>
               <div className="feature-card">
                 <div className="feature-icon">🤖</div>
-                <h3 className="feature-title">Scikit-Learn Ready</h3>
+                <h3 className="feature-title">Scikit-Learn ML Ready</h3>
                 <p className="feature-text">
                   Built-in TF-IDF and Logistic Regression email classifier to assist administrators in evaluating simulation difficulty and indicators.
                 </p>
@@ -360,7 +360,7 @@ function App() {
               <div className="stat-card">
                 <span className="stat-label">Total Simulations</span>
                 <span className="stat-value">{stats.total_simulations}</span>
-                <span className="stat-note">Active simulation templates</span>
+                <span className="stat-note">Phishing & Legitimate templates</span>
               </div>
               <div className="stat-card">
                 <span className="stat-label">Links Clicked</span>
@@ -377,7 +377,7 @@ function App() {
             {/* Simulation Deployment & ML Evaluation Card */}
             <div className="card">
               <div className="card-header">
-                <h2 className="card-title">Deploy New Phishing Simulation</h2>
+                <h2 className="card-title">Deploy New Email Simulation</h2>
                 <span className="badge badge-blue">Admin Control</span>
               </div>
               <form onSubmit={handleCreateSimulation}>
@@ -394,6 +394,24 @@ function App() {
                     />
                   </div>
                   <div className="form-group">
+                    <label className="form-label">Email Nature</label>
+                    <select 
+                      className="form-control"
+                      value={newSim.is_suspicious ? "phishing" : "legitimate"}
+                      onChange={e => setNewSim({
+                        ...newSim, 
+                        is_suspicious: e.target.value === "phishing",
+                        red_flags: e.target.value === "phishing" ? "Urgency, External Link" : "None (Legitimate internal message)"
+                      })}
+                    >
+                      <option value="phishing">⚠️ Phishing Simulation (Deceptive / Suspicious)</option>
+                      <option value="legitimate">✅ Legitimate Internal Email (Benign / Routine)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+                  <div className="form-group">
                     <label className="form-label">Sender Email Address</label>
                     <input 
                       type="text" 
@@ -404,18 +422,17 @@ function App() {
                       required
                     />
                   </div>
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label">Email Subject</label>
-                  <input 
-                    type="text" 
-                    className="form-control" 
-                    placeholder="e.g. [SIMULATION] Urgent: Confirm your workstation credentials"
-                    value={newSim.subject}
-                    onChange={e => setNewSim({...newSim, subject: e.target.value})}
-                    required
-                  />
+                  <div className="form-group">
+                    <label className="form-label">Email Subject</label>
+                    <input 
+                      type="text" 
+                      className="form-control" 
+                      placeholder="e.g. Urgent: Confirm your workstation credentials"
+                      value={newSim.subject}
+                      onChange={e => setNewSim({...newSim, subject: e.target.value})}
+                      required
+                    />
+                  </div>
                 </div>
 
                 <div className="form-group">
@@ -444,7 +461,7 @@ function App() {
                     </select>
                   </div>
                   <div className="form-group">
-                    <label className="form-label">Red Flags Description</label>
+                    <label className="form-label">Red Flags / Clues Description</label>
                     <input 
                       type="text" 
                       className="form-control" 
@@ -454,11 +471,12 @@ function App() {
                     />
                   </div>
                   <div className="form-group">
-                    <label className="form-label">Safe Training URL</label>
+                    <label className="form-label">Simulated Link URL (Optional)</label>
                     <input 
                       type="text" 
                       className="form-control" 
                       value={newSim.simulated_url}
+                      placeholder={newSim.is_suspicious ? "https://safe-training-domain.local/demo" : "(None for normal announcement)"}
                       onChange={e => setNewSim({...newSim, simulated_url: e.target.value})}
                     />
                   </div>
@@ -485,7 +503,7 @@ function App() {
                 </div>
 
                 <button type="submit" className="btn btn-primary">
-                  Deploy Simulation to All Inboxes
+                  Deploy Email to Inboxes
                 </button>
               </form>
             </div>
@@ -546,12 +564,13 @@ function App() {
                       <th>Timestamp</th>
                       <th>Employee</th>
                       <th>Simulation Subject</th>
+                      <th>Nature</th>
                       <th>Action Taken</th>
                     </tr>
                   </thead>
                   <tbody>
                     {interactions.length === 0 ? (
-                      <tr><td colSpan="4" style={{textAlign: "center", color: "#64748b"}}>No simulation interactions recorded yet.</td></tr>
+                      <tr><td colSpan="5" style={{textAlign: "center", color: "#64748b"}}>No simulation interactions recorded yet.</td></tr>
                     ) : (
                       interactions.map(item => (
                         <tr key={item.id}>
@@ -559,9 +578,17 @@ function App() {
                           <td>{item.employee_name}</td>
                           <td>{item.simulation_subject}</td>
                           <td>
+                            {item.is_suspicious ? (
+                              <span className="badge badge-red">Phishing</span>
+                            ) : (
+                              <span className="badge badge-green">Legitimate</span>
+                            )}
+                          </td>
+                          <td>
                             {item.action === "clicked_link" && <span className="badge badge-red">Clicked Link</span>}
-                            {item.action === "reported" && <span className="badge badge-green">Reported Email</span>}
-                            {item.action === "opened" && <span className="badge badge-blue">Opened</span>}
+                            {item.action === "reported" && <span className="badge badge-green">Reported</span>}
+                            {item.action === "marked_safe" && <span className="badge badge-blue">Marked Safe</span>}
+                            {item.action === "opened" && <span className="badge badge-yellow">Opened</span>}
                           </td>
                         </tr>
                       ))
@@ -643,12 +670,14 @@ function App() {
                     )}
 
                     <div className="reader-actions">
-                      <button 
-                        className="btn btn-danger" 
-                        onClick={() => handleInteraction("clicked_link")}
-                      >
-                        ⚠️ Click Simulated Link (Test Interaction)
-                      </button>
+                      {selectedSim.simulated_url && (
+                        <button 
+                          className="btn btn-danger" 
+                          onClick={() => handleInteraction("clicked_link")}
+                        >
+                          ⚠️ Click Simulated Link (Test Vulnerability)
+                        </button>
+                      )}
                       <button 
                         className="btn btn-success" 
                         onClick={() => handleInteraction("reported")}
@@ -656,10 +685,16 @@ function App() {
                         🛡️ Report Email as Phishing
                       </button>
                       <button 
+                        className="btn btn-primary" 
+                        onClick={() => handleInteraction("marked_safe")}
+                      >
+                        ✅ Mark as Legitimate & Safe
+                      </button>
+                      <button 
                         className="btn btn-secondary" 
                         onClick={() => handleInteraction("opened")}
                       >
-                        Mark as Reviewed
+                        Mark as Read
                       </button>
                     </div>
                   </div>
@@ -780,7 +815,7 @@ function App() {
                   <label className="quiz-option">
                     <input 
                       type="radio" 
-                      name="q1" 
+                      name="q2" 
                       checked={quizAnswers[1] === 2} 
                       onChange={() => setQuizAnswers({...quizAnswers, 1: 2})} 
                     />
